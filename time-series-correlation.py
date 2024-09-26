@@ -4,6 +4,8 @@ import pandas as pd
 from statsmodels.tsa.stattools import adfuller
 import numpy as np
 from sklearn.linear_model import LinearRegression
+import sys
+import math
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -16,16 +18,38 @@ if __name__ == '__main__':
 
     data = pd.read_csv(args.file)
 
+    # clean up target data
+    target_array = []
+    for target in data[args.target_column]:
+        if type(target) == str:
+            # Remove double quotes
+            cleaned_tgt = target.replace('"', "")
+            if cleaned_tgt[-1] == "M":
+                cleaned_tgt = cleaned_tgt.replace('M',"")
+                cleaned_tgt = math.trunc(float(cleaned_tgt) * 1000000)
+            elif cleaned_tgt[-1] == "B":
+                cleaned_tgt = cleaned_tgt.replace('B',"")
+                cleaned_tgt = math.trunc(float(cleaned_tgt) * 1000000000)
+            target_array.append(cleaned_tgt)
+        else:
+            target_array.append(target)
+    # clean up price data
+    feature_array = []
+    for feature in data[args.feature_column]:
+        feature_array.append(feature)
+
     # Target Column passes ADF test
-    result = adfuller(data[args.target_column])
+    result = adfuller(target_array)
+
     print(f"{args.target_column} ADF Statistic:", result[0])
     print(f"{args.target_column} p-value:", result[1])
+
     if result[1] >= 0.05:
         print(f"WARNING: {args.target_column} failed ADF test, this is time series data")
 
     # Reshape target to 2D array, as required by scikit-learn
-    reshaped_target_array = np.array(data[args.target_column]).reshape(-1, 1)
-    feature_array = np.array(data[args.feature_column])
+    reshaped_target_array = np.array(target_array).reshape(-1, 1)
+    feature_array = np.array(feature_array)
     model = LinearRegression()
     model.fit(reshaped_target_array, feature_array)
 
@@ -38,4 +62,4 @@ if __name__ == '__main__':
 
     # Predict values (optional)
     predictions = model.predict(reshaped_target_array)
-    print(f"Predictions: {predictions}")
+    print(f"Predictions: {predictions[0]}")
